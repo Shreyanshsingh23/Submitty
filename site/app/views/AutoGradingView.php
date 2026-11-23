@@ -456,6 +456,9 @@ class AutoGradingView extends AbstractView {
 
         // Check for image annotation files
         $img_annotation_paths = [];
+        // Annotated images are loaded from the submitted files, which students can't open
+        // when student download is off, so don't offer the annotated feedback to them
+        $can_view_annotations = $this->core->getUser()->accessGrading() || $gradeable->canStudentDownload();
         foreach ($uploaded_imgs as $image_file) {
             // Following ImageController pattern - use MD5 of path for matching
             /*
@@ -465,7 +468,7 @@ class AutoGradingView extends AbstractView {
             */
             $image_path_md5 = md5($image_file['path']);
 
-            if (is_dir($img_annotation_dir)) {
+            if ($can_view_annotations && is_dir($img_annotation_dir)) {
                 $dir_iter = new \FilesystemIterator($img_annotation_dir);
                 foreach ($dir_iter as $file_info) {
                     $annotation_file_parts = explode("_", $file_info->getFilename());
