@@ -1,0 +1,83 @@
+# Throwaway workflow for Submitty #13660 screenshots, only on the fork, not part of the PR.
+name: Screenshots 13660
+
+on:
+  push:
+    branches:
+      - ci-screenshots-13660
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PGPASSWORD: submitty_dbuser
+  PHP_USER: submitty_php
+  PHP_GROUP: submitty_php
+  CGI_USER: submitty_cgi
+  SUBMITTY_DATA_DIR: /var/local/submitty
+  SUBMITTY_INSTALL_DIR: /usr/local/submitty
+  SUBMITTY_REPOSITORY: /usr/local/submitty/GIT_CHECKOUT/Submitty
+  POSTGRES_HOST: localhost
+  PHP_VER: 8.2
+  NODE_VERSION: 20
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ["before", "after"]
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: submitty_dbuser
+          POSTGRES_USER: postgres
+          TZ: America/New_York
+          PGTZ: America/New_York
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Revert the fix for the before run
+        if: matrix.variant == 'before'
+        run: |
+          sed -i 's/if (\$can_view_annotations \&\& is_dir(/if (is_dir(/' site/app/views/AutoGradingView.php
+          ! grep -q 'can_view_annotations && is_dir' site/app/views/AutoGradingView.php
+          git diff --stat
+
+      - name: Run setup script
+        uses: ./.github/actions/e2e-Setup-Composite
+        with:
+          courses: sample
+          flags: --test_only_grading
+
+      - name: Install node dependencies
+        working-directory: ${{env.SUBMITTY_REPOSITORY}}/site
+        run: npm ci
+
+      - name: Run screenshot spec
+        uses: cypress-io/github-action@v7
+        with:
+          config: baseUrl=http://localhost
+          working-directory: ${{env.SUBMITTY_REPOSITORY}}/site
+          spec: cypress/e2e/Cypress-Screenshots13660/*
+          browser: chrome
+          expose: run_area=CI,variant=${{ matrix.variant }}
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screenshots-${{ matrix.variant }}
+          path: ${{env.SUBMITTY_REPOSITORY}}/site/cypress/screenshots
