@@ -76,6 +76,13 @@ jobs:
           browser: chrome
           expose: run_area=CI,variant=${{ matrix.variant }}
 
+      - name: Debug server state
+        if: always()
+        run: |
+          sudo find /var/local/submitty/courses/*/sample/annotations /var/local/submitty/courses/*/sample/submissions_processed/bulk_upload_test -maxdepth 6 | head -50
+          psql -h localhost -U submitty_dbuser -d submitty_$(ls /var/local/submitty/courses)_sample -c "select g_id, eg_student_view, eg_student_download, eg_student_view_after_grades from electronic_gradeable where g_id='bulk_upload_test'" || true
+          sudo tail -50 /var/local/submitty/logs/site_errors/*.log 2>/dev/null || true
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -76,11 +76,14 @@ function annotate() {
     cy.get('#annotation-status').should('have.text', 'Annotations saved successfully!');
 }
 
-function viewAsStudent() {
+function viewAsStudent(label) {
     cy.visit(['sample']);
     cy.login(student);
     cy.visit(['sample', 'gradeable', gradeable]);
     cy.get('[data-testid="ta-results-box"]').should('be.visible').scrollIntoView();
+    cy.get('[data-testid="ta-results-box"]').invoke('prop', 'outerHTML').then((html) => {
+        cy.writeFile(`cypress/screenshots/${variant}-${label}.html`, html);
+    });
 }
 
 describe(`Submitty #13660 annotated feedback (${variant})`, () => {
@@ -143,7 +146,7 @@ describe(`Submitty #13660 annotated feedback (${variant})`, () => {
         updateGradeable({ student_download: 'true' });
         cy.logout();
 
-        viewAsStudent();
+        viewAsStudent('download-on');
         cy.get('[data-testid="ta-results-box"]').should('contain', 'Annotated Feedback');
         cy.get('[data-testid="ta-results-box"]').screenshot(`${variant}-1-download-on`);
         cy.logout();
@@ -155,7 +158,7 @@ describe(`Submitty #13660 annotated feedback (${variant})`, () => {
         updateGradeable({ student_download: 'false' });
         cy.logout();
 
-        viewAsStudent();
+        viewAsStudent('download-off');
         cy.get('[data-testid="ta-results-box"]').screenshot(`${variant}-2-download-off`);
         cy.get('[data-testid="ta-results-box"]').then(($box) => {
             const shown = $box.text().includes('Annotated Feedback');
